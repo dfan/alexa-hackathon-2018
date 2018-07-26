@@ -11,12 +11,12 @@ AWS.config.update({
       secretAccessKey: `${process.env.SECRET_ACCESS_KEY}`,
 });
 
-exports.handler = (message, toAddress) => {
+exports.handler = (event, context) => {
   var sns = new AWS.SNS();
   var params = {
-      Message: message.join('\n'),
+      Message: event.message.join('\n'),
       MessageStructure: 'string',
-      PhoneNumber: toAddress,
+      PhoneNumber: event.toAddress,
       Subject: 'your subject'
   };
 
@@ -26,4 +26,4 @@ exports.handler = (message, toAddress) => {
   });
 }
 
-// handler(['Apples', 'Oranges'], '19083920562');
+// handler({message: ['Apples', 'Oranges', 'Bananas'], toAddress: '19083920562'});

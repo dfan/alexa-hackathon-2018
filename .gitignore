@@ -104,6 +104,7 @@ venv.bak/
 .mypy_cache/
 
 recipe-generator.zip
+text-sender.zip
 
 .DS_Store
 .idea/

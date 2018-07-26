@@ -8,9 +8,8 @@
   },
   "author": "David Fan",
   "dependencies": {
-    "dotenv": "^6.0.0",
-    "node-fetch": "^2.2.0",
     "aws-sdk": "^2.282.1",
-    "twilio": "^3.18.0"
+    "dotenv": "^6.0.0",
+    "node-fetch": "^2.2.0"
   }
 }
