@@ -5,7 +5,7 @@ exports.handler = (event, context, callback) => {
   fetch(`https://api.edamam.com/search?q=${event.query}&app_id=${process.env.APP_ID}&app_key=${process.env.APP_KEY}`)
     .then(res => res.json())
     .then(json => callback(null, json.hits[0].recipe.ingredientLines))
-    .catch(err => new Error(err));
+    .catch(err => callback(new Error(err)));
 }
 
 // handler({ query: 'pizza' }, {}, ingredients => {
