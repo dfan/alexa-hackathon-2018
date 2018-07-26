@@ -49,7 +49,7 @@ function sendEmail(var address){
       Data: "Your Shopping List from Alexa Dream Cooker"
      }
     },
-  Source: "SENDER_EMAIL_ADDRESS", /* required */
+  Source: "dreamcookeralexa@gmail.com", /* required */
   ReplyToAddresses: [
       "dreamcookeralexa@gmail.com"
     /* more items */
