@@ -21,23 +21,24 @@ const FOOD_INGREDIENTS_ATTRIBUTE = "FOOD_INGREDIENTS";
 let rp = require('request-promise');
 
 function sendEmail(var address){
-// Create sendEmail params 
-var params = {
-  Destination: { /* required */
-    CcAddresses: [
-      'EMAIL_ADDRESS',
-      /* more items */
-    ],
-    ToAddresses: [
-       address //Insert the legit address here.
-      /* more items */
-    ]
-  },
-  Message: { /* required */
-    Body: { /* required */
-      Html: {
-       Charset: "UTF-8",
-       Data: "HTML_FORMAT_BODY"
+  let ses = AWS.SES();
+  // Create sendEmail params 
+  var params = {
+    Destination: { /* required */
+      CcAddresses: [
+        'EMAIL_ADDRESS',
+        /* more items */
+      ],
+      ToAddresses: [
+        address //Insert the legit address here.
+        /* more items */
+      ]
+    },
+    Message: { /* required */
+      Body: { /* required */
+        Html: {
+        Charset: "UTF-8",
+        Data: "HTML_FORMAT_BODY"
       },
       Text: {
        Charset: "UTF-8",
