@@ -20,9 +20,6 @@ const handlers = {
     'MakeFoodIntent': function () {
         this.emit(':responseReady');
     },
-    'EmailTextIntent': function(){
-        this.emit(':responseReady');
-    },
     'AMAZON.YesIntent': function(){
         if(this.attributes[QUESTION_STATE_ATTRIBUTE] === HAVE_INGREDIENTS_QUESTION){
             // Query Food API for ingredients
@@ -45,7 +42,7 @@ const handlers = {
     'SendRecipeIntent': function(){
         const slotValue = this.event.request.intent.slots.mediaType.value;
         if(slotValue === MEDIATYPE_EMAIL_SLOT){
-        
+
         }
         else if (slotValue === MEDIATYPE_TEXT_SLOT){
 
