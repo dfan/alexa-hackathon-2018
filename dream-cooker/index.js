@@ -25,6 +25,8 @@ const handlers = {
     },
     'LaunchRequest': function () {
         this.attributes[QUESTION_STATE_ATTRIBUTE] = HAVE_INGREDIENTS_QUESTION;
+        this.response.speak("Welcome to Dream Cooker. Want do you want to cook? ")
+            .listen("Want do you want to cook?");
 
         this.emit(':responseReady');
     },
@@ -54,6 +56,7 @@ const handlers = {
     },
     'SendRecipeIntent': function(){
         const slotValue = this.event.request.intent.slots.mediaType.value;
+        let alexa = this;
         if(slotValue === MEDIATYPE_EMAIL_SLOT){
 
         }
@@ -62,7 +65,7 @@ const handlers = {
         }
         else if (slotValue === MEDIATYPE_TODO_SLOT){
             const consentToken = this.event.session.user.permissions.consentToken;
-            const options = {
+            const createListOptions = {
                 method: 'POST',
                 host: LIST_API_URL,
                 port: LIST_API_PORT,
@@ -78,9 +81,16 @@ const handlers = {
                 },
                 json: true // Automatically parses the JSON string in the response
             };
-            rp(options)
+            rp(createListOptions)
                 .then(function(response){
-
+                    // for(let i=0; i<lexa.attributes[FOOD_INGREDIENTS_ATTRIBUTE].length; i++){
+                    //     let createListItemOptions = {
+                    //         method: 'POST',
+                    //         host: LIST_API_URL,
+                    //         port: LIST_API_PORT,
+                    //
+                    //     }
+                    // }
                 });
         }
         else{
@@ -104,7 +114,7 @@ const handlers = {
 
 exports.handler = function (event, context, callback) {
     const alexa = Alexa.handler(event, context, callback);
-    alexa.appId = APP_ID;
+    //alexa.appId = APP_ID;
     alexa.registerHandlers(handlers);
     alexa.execute();
 };
