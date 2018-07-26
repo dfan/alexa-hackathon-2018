@@ -26,8 +26,6 @@ function sendEmail(var address){
   var params = {
     Destination: { /* required */
       CcAddresses: [
-        'EMAIL_ADDRESS',
-        /* more items */
       ],
       ToAddresses: [
         address //Insert the legit address here.
@@ -38,7 +36,7 @@ function sendEmail(var address){
       Body: { /* required */
         Html: {
         Charset: "UTF-8",
-        Data: "HTML_FORMAT_BODY"
+        Data: ""
       },
       Text: {
        Charset: "UTF-8",
