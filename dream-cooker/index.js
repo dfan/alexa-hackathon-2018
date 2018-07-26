@@ -21,7 +21,6 @@ const FOOD_INGREDIENTS_ATTRIBUTE = "FOOD_INGREDIENTS";
 let rp = require('request-promise');
 
 function sendEmail(var address){
-  let ses = AWS.SES();
   // Create sendEmail params 
   var params = {
     Destination: { /* required */
@@ -46,13 +45,13 @@ function sendEmail(var address){
       }
      },
      Subject: {
-      Charset: 'UTF-8',
-      Data: 'Your Shopping List from Alexa Dream Cooker''
+      Charset: "UTF-8",
+      Data: "Your Shopping List from Alexa Dream Cooker"
      }
     },
-  Source: 'SENDER_EMAIL_ADDRESS', /* required */
+  Source: "SENDER_EMAIL_ADDRESS", /* required */
   ReplyToAddresses: [
-      dreamcookeralexa@gmail.com,
+      "dreamcookeralexa@gmail.com"
     /* more items */
   ],
 };       
