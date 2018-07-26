@@ -1,5 +1,7 @@
 'use strict';
 const Alexa = require('alexa-sdk');
+// Load the AWS SDK for Node.js
+const AWS = require('aws-sdk');
 
 const HAVE_INGREDIENTS_QUESTION = "HAVE_INGREDIENTS";
 const HEAR_RECIPE_QUESTION = "HEAR_QUESTION";
@@ -17,6 +19,55 @@ const FOOD_QUERY_ATTRIBUTE = "FOOD_QUERY";
 const FOOD_INGREDIENTS_ATTRIBUTE = "FOOD_INGREDIENTS";
 
 let rp = require('request-promise');
+
+function sendEmail(var address){
+// Create sendEmail params 
+var params = {
+  Destination: { /* required */
+    CcAddresses: [
+      'EMAIL_ADDRESS',
+      /* more items */
+    ],
+    ToAddresses: [
+       address //Insert the legit address here.
+      /* more items */
+    ]
+  },
+  Message: { /* required */
+    Body: { /* required */
+      Html: {
+       Charset: "UTF-8",
+       Data: "HTML_FORMAT_BODY"
+      },
+      Text: {
+       Charset: "UTF-8",
+       Data: "" //Insert stuff here please!
+      }
+     },
+     Subject: {
+      Charset: 'UTF-8',
+      Data: 'Your Shopping List from Alexa Dream Cooker''
+     }
+    },
+  Source: 'SENDER_EMAIL_ADDRESS', /* required */
+  ReplyToAddresses: [
+      dreamcookeralexa@gmail.com,
+    /* more items */
+  ],
+};       
+
+// Create the promise and SES service object
+var sendPromise = new AWS.SES({apiVersion: '2010-12-01'}).sendEmail(params).promise();
+
+// Handle promise's fulfilled/rejected states
+sendPromise.then(
+  function(data) {
+    console.log(data.MessageId);
+  }).catch(
+    function(err) {
+    console.error(err, err.stack);
+  });
+}
 
 const handlers = {
     // Route new requests to Launch Request
@@ -58,7 +109,7 @@ const handlers = {
         const slotValue = this.event.request.intent.slots.mediaType.value;
         let alexa = this;
         if(slotValue === MEDIATYPE_EMAIL_SLOT){
-
+            sendEmail("testing@testing.com");
         }
         else if (slotValue === MEDIATYPE_TEXT_SLOT){
 
