@@ -2,6 +2,7 @@
 const Alexa = require('alexa-sdk');
 // Load the AWS SDK for Node.js
 const AWS = require('aws-sdk');
+const fetch = require('node-fetch');
 
 const HAVE_INGREDIENTS_QUESTION = "HAVE_INGREDIENTS";
 const HEAR_RECIPE_QUESTION = "HEAR_QUESTION";
@@ -112,7 +113,23 @@ const handlers = {
             sendEmail("testing@testing.com");
         }
         else if (slotValue === MEDIATYPE_TEXT_SLOT){
+            AWS.config.region = `${process.env.MY_REGION}`;
+            AWS.config.update({
+                  accessKeyId: `${process.env.ACCESS_KEY}`,
+                  secretAccessKey: `${process.env.SECRET_ACCESS_KEY}`,
+            });
+            var sns = new AWS.SNS();
+            var params = {
+                Message: this.attributes[FOOD_INGREDIENTS_ATTRIBUTE].join('\n'),
+                MessageStructure: 'string',
+                PhoneNumber: '19083920562',
+                Subject: `Your recipe for ${this.attributes[FOOD_QUERY_ATTRIBUTE]}`
+            };
 
+            sns.publish(params, function(err, data) {
+                if (err) console.log(err, err.stack); // an error occurred
+                else     console.log(data);           // successful response
+            });
         }
         else if (slotValue === MEDIATYPE_TODO_SLOT){
             const consentToken = this.event.session.user.permissions.consentToken;

@@ -2,9 +2,6 @@ const fetch = require('node-fetch');
 require('dotenv').config();
 const AWS = require('aws-sdk');
 
-console.log(`${process.env.ACCESS_KEY}`);
-console.log(`${process.env.SECRET_ACCESS_KEY}`);
-
 AWS.config.region = `${process.env.MY_REGION}`;
 AWS.config.update({
       accessKeyId: `${process.env.ACCESS_KEY}`,
