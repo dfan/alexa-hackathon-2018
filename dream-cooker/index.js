@@ -21,57 +21,109 @@ const FOOD_INGREDIENTS_ATTRIBUTE = "FOOD_INGREDIENTS";
 
 let rp = require('request-promise');
 
-function sendEmail(var address){
-  // Create sendEmail params 
-  var params = {
-    Destination: { /* required */
-      CcAddresses: [
-      ],
-      ToAddresses: [
-        address //Insert the legit address here.
+function sendEmail(var address) {
+    AWS.config.region = `${process.env.MY_REGION}`;
+    AWS.config.update({
+        accessKeyId: `${process.env.ACCESS_KEY}`,
+        secretAccessKey: `${process.env.SECRET_ACCESS_KEY}`,
+    });
+    var params = {
+        Destination: { /* required */
+          CcAddresses: [
+          ],
+          ToAddresses: [
+            event.address //Insert the legit address here.
+            /* more items */
+          ]
+        },
+        Message: { /* required */
+          Body: { /* required */
+            Html: {
+              Charset: "UTF-8",
+              Data: "<html><head></head><body><p>" + event.message.join('<br>') + "</p></body></html>"
+            },
+            Text: {
+             Charset: "UTF-8",
+             Data: event.message.join('\n')
+            }
+         },
+         Subject: {
+          Charset: "UTF-8",
+          Data: "Your Shopping List from Alexa Dream Cooker"
+         }
+        },
+      Source: "alexadreamcooker@gmail.com", /* required */
+      ReplyToAddresses: [
+          "alexadreamcooker@gmail.com"
         /* more items */
-      ]
-    },
-    Message: { /* required */
-      Body: { /* required */
-        Html: {
-        Charset: "UTF-8",
-        Data: ""
-      },
-      Text: {
-       Charset: "UTF-8",
-       Data: "" //Insert stuff here please!
-      }
-     },
-     Subject: {
-      Charset: "UTF-8",
-      Data: "Your Shopping List from Alexa Dream Cooker"
-     }
-    },
-  Source: "dreamcookeralexa@gmail.com", /* required */
-  ReplyToAddresses: [
-      "dreamcookeralexa@gmail.com"
-    /* more items */
-  ],
-};       
+      ],
+    };       
 
-// Create the promise and SES service object
-var sendPromise = new AWS.SES({apiVersion: '2010-12-01'}).sendEmail(params).promise();
+    // Create the promise and SES service object
+    var sendPromise = new AWS.SES({apiVersion: '2010-12-01'}).sendEmail(params).promise();
 
-// Handle promise's fulfilled/rejected states
-sendPromise.then(
-  function(data) {
-    console.log(data.MessageId);
-  }).catch(
-    function(err) {
-    console.error(err, err.stack);
-  });
+    // Handle promise's fulfilled/rejected states
+    sendPromise.then(
+      function(data) {
+        console.log(data.MessageId);
+      }).catch(
+        function(err) {
+        console.error(err, err.stack);
+      });
 }
 
 const handlers = {
     // Route new requests to Launch Request
     'NewSession': function(){
-        this.emitWithState('LaunchRequest')
+        var alexa = this;
+        this.emitWithState('LaunchRequest');
+
+        if(this.event.session.user.accessToken){
+            const amznProfileURL = 'https://api.amazon.com/user/profile';
+            const accessToken = this.event.session.user.accessToken;
+            const options = {
+                method: 'GET',
+                uri: amznProfileURL,
+                qs:{
+                  access_token: accessToken
+                },
+                headers: {
+                  'User-Agent': 'Request-Promise'
+                },
+                json: true // Automatically parses the JSON string in the response
+            };
+            rp(options)
+            .then(function(profile){
+                console.log('get profile');
+                console.log('user id: ' + profile.user_id);
+                alexa.attributes["save"] = true;
+                var params = {
+                TableName: "GetFitTable",
+                Key: {
+                  user_email: profile.email
+                }
+              };
+              docClient.get(params, function(err, data){
+                if(Object.keys(data).length !== 0){ //Existing User
+                    Object.assign(alexa.attributes, data.Item);
+                    alexa.attributes['Timestamp'] = date.toString();
+                    alexa.attributes["LoginCount"]++;
+                    console.log()
+                }
+                else{ //New Registered User
+                    alexa.attributes["user_id"] = profile.user_id;
+                    alexa.attributes["LoginCount"] = 0;
+                    console.log("new registered user");
+                }
+                utilities.getTrainingRoutine(alexa.attributes['user_id'], alexa, 'LaunchRequest');
+              });
+            })
+            .finally(function(){
+                alexa.emitWithState('LaunchRequest');
+            });
+
+            this.attributes[MEDIATYPE_EMAIL_SLOT] = user_email;
+        }
     },
     'LaunchRequest': function () {
         this.attributes[QUESTION_STATE_ATTRIBUTE] = HAVE_INGREDIENTS_QUESTION;
@@ -81,7 +133,6 @@ const handlers = {
         this.emit(':responseReady');
     },
     'MakeFoodIntent': function () {
-
         this.attributes[FOOD_INGREDIENTS_ATTRIBUTE] = [];
         this.emit(':responseReady');
     },
@@ -108,7 +159,7 @@ const handlers = {
         const slotValue = this.event.request.intent.slots.mediaType.value;
         let alexa = this;
         if(slotValue === MEDIATYPE_EMAIL_SLOT){
-            sendEmail("testing@testing.com");
+            sendEmail(this.attributes[MEDIATYPE_EMAIL_SLOT]);
         }
         else if (slotValue === MEDIATYPE_TEXT_SLOT){
             AWS.config.region = `${process.env.MY_REGION}`;
