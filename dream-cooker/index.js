@@ -1,5 +1,8 @@
 'use strict';
 const Alexa = require('alexa-sdk');
+// Load the AWS SDK for Node.js
+const AWS = require('aws-sdk');
+const fetch = require('node-fetch');
 
 const HAVE_INGREDIENTS_QUESTION = "HAVE_INGREDIENTS";
 const HEAR_RECIPE_QUESTION = "HEAR_QUESTION";
@@ -7,7 +10,7 @@ const QUESTION_STATE_ATTRIBUTE = "QUESTION_STATE";
 
 const APP_ID = "amzn1.ask.skill.e770bd0d-a891-4563-874c-b6716c36ea04";
 const MEDIATYPE_EMAIL_SLOT = "email";
-const MEDIATYPE_TEXT_SLOT = "slot";
+const MEDIATYPE_TEXT_SLOT = "text";
 const MEDIATYPE_TODO_SLOT = "to do list";
 
 const LIST_API_URL = "api.amazonalexa.com";
@@ -15,35 +18,126 @@ const LIST_API_PORT = "443";
 
 const FOOD_QUERY_ATTRIBUTE = "FOOD_QUERY";
 const FOOD_INGREDIENTS_ATTRIBUTE = "FOOD_INGREDIENTS";
+const EMAIL_ATTRIBUTE = "EMAIL_ATTRIBUTE";
 
 let rp = require('request-promise');
 
-const fetch = require('node-fetch');
+function sendEmail(address, alexa) {
+    AWS.config.region = `${process.env.MY_REGION}`;
+    AWS.config.update({
+        accessKeyId: `${process.env.ACCESS_KEY}`,
+        secretAccessKey: `${process.env.SECRET_ACCESS_KEY}`,
+    });
+    var params = {
+        Destination: { /* required */
+          CcAddresses: [
+          ],
+          ToAddresses: [
+            address //Insert the legit address here.
+            /* more items */
+          ]
+        },
+        Message: { /* required */
+          Body: { /* required */
+            Html: {
+              Charset: "UTF-8",
+              Data: "<html><head></head><body><p>" + alexa.attributes[FOOD_INGREDIENTS_ATTRIBUTE].join('<br>') + "</p></body></html>"
+            },
+            Text: {
+             Charset: "UTF-8",
+             Data: alexa.attributes[FOOD_INGREDIENTS_ATTRIBUTE].join('\n')
+            }
+         },
+         Subject: {
+          Charset: "UTF-8",
+          Data: "Your Shopping List from Alexa Dream Cooker"
+         }
+        },
+      Source: "alexadreamcooker@gmail.com", /* required */
+      ReplyToAddresses: [
+          "alexadreamcooker@gmail.com"
+        /* more items */
+      ],
+    };       
+
+    // Create the promise and SES service object
+    var sendPromise = new AWS.SES({apiVersion: '2010-12-01'}).sendEmail(params).promise();
+
+    // Handle promise's fulfilled/rejected states
+    sendPromise.then(
+      function(data) {
+        console.log(data.MessageId);
+        alexa.response.speak("Your ingredients have been sent to the email. Goodbye!");
+        alexa.emit(":responseReady");
+      }).catch(
+        function(err) {
+        console.error(err, err.stack);
+            alexa.response.speak("Your ingredients have not been sent to the email. Goodbye!");
+            alexa.emit(":responseReady");
+      });
+}
 
 const handlers = {
     // Route new requests to Launch Request
     'NewSession': function(){
-        this.emitWithState('LaunchRequest')
+        let alexa = this;
+        alexa.attributes[EMAIL_ATTRIBUTE] = "";
+        if(this.event.session.user.accessToken) {
+            const amznProfileURL = 'https://api.amazon.com/user/profile';
+            const accessToken = this.event.session.user.accessToken;
+            const options = {
+                method: 'GET',
+                uri: amznProfileURL,
+                qs: {
+                    access_token: accessToken
+                },
+                headers: {
+                    'User-Agent': 'Request-Promise'
+                },
+                json: true // Automatically parses the JSON string in the response
+            };
+            rp(options)
+            .then(function(profile){
+                alexa.attributes[EMAIL_ATTRIBUTE] = profile.email;
+                alexa.emitWithState('LaunchRequest');
+            })
+            .catch(function (err) {
+                alexa.emitWithState('LaunchRequest');
+            });
+        }
+        else{
+            this.emitWithState('LaunchRequest');
+        }
+
+
+
     },
     'LaunchRequest': function () {
         this.attributes[QUESTION_STATE_ATTRIBUTE] = HAVE_INGREDIENTS_QUESTION;
-        this.attributes[FOOD_QUERY_ATTRIBUTE] = "Pizza Is Good";
-        this.attributes[FOOD_INGREDIENTS_ATTRIBUTE] = ['Tomato', 'Cheese'];
         this.response.speak("Welcome to Dream Cooker. Want do you want to cook? ")
             .listen("Want do you want to cook?");
 
         this.emit(':responseReady');
     },
     'MakeFoodIntent': function () {
-        // fetch(`https://api.edamam.com/search?q=${event.query}&app_id=${process.env.APP_ID}&app_key=${process.env.APP_KEY}`)
-        //     .then(res => res.json())
-        //     .then(json => callback(null, {
-        //         recipe: '',
-        //         ingredients: json.hits[0].recipe.ingredientLines,
-        //     }))
-        //     .catch(err => callback(new Error(err)));
-        this.attributes[FOOD_INGREDIENTS_ATTRIBUTE] = ['Tomato', 'Cheese'];
-        this.emit(':responseReady');
+        let foodQuery = this.event.request.intent.slots.food.value;
+        this.attributes[FOOD_QUERY_ATTRIBUTE] = foodQuery;
+        if(!foodQuery){
+            this.response.speak("Error").listen("What to cook?");
+            this.emit(':responseReady');
+        }
+        else{
+            let alexa = this;
+            fetch(`https://api.edamam.com/search?q=${foodQuery}&app_id=${process.env.APP_ID}&app_key=${process.env.APP_KEY}`)
+                .then(res => res.json())
+                .then(function(json){
+                    alexa.attributes[FOOD_INGREDIENTS_ATTRIBUTE] = json.hits[0].recipe.ingredientLines;
+                    let prompt = "Would you like to receive an email, a text, or save the ingredients into your Alexa lists. ";
+                    alexa.response.speak(prompt).listen(prompt);
+                    alexa.emit(':responseReady');
+                })
+                .catch(err => console.log(err));
+        }
     },
     'AMAZON.YesIntent': function(){
         if(this.attributes[QUESTION_STATE_ATTRIBUTE] === HAVE_INGREDIENTS_QUESTION){
@@ -68,9 +162,35 @@ const handlers = {
         const slotValue = this.event.request.intent.slots.mediaType.value;
         let alexa = this;
         if(slotValue === MEDIATYPE_EMAIL_SLOT){
+            sendEmail(this.attributes[EMAIL_ATTRIBUTE], alexa);
         }
         else if (slotValue === MEDIATYPE_TEXT_SLOT){
+            AWS.config.region = `${process.env.MY_REGION}`;
+            AWS.config.update({
+                  accessKeyId: `${process.env.ACCESS_KEY}`,
+                  secretAccessKey: `${process.env.SECRET_ACCESS_KEY}`,
+            });
+            let sns = new AWS.SNS();
+            let params = {
+                Message: this.attributes[FOOD_INGREDIENTS_ATTRIBUTE].join('\n'),
+                MessageStructure: 'string',
+                PhoneNumber: '19083920562',
+                Subject: `Your recipe for ${this.attributes[FOOD_QUERY_ATTRIBUTE]}`
+            };
 
+            sns.publish(params, function(err, data) {
+                if (err) {
+                    console.log(err, err.stack);
+                    alexa.response.speak("Your ingredients have not been sent to the phone. Goodbye!");
+                    alexa.emit(":responseReady");
+                } // an error occurred
+                else  {
+                    console.log(data);           // successful response
+                    alexa.response.speak("Your ingredients have been sent to the phone. Goodbye!");
+                    alexa.emit(":responseReady");
+                }
+
+            });
         }
         else if (slotValue === MEDIATYPE_TODO_SLOT){
             const accessToken = this.event.context.System.apiAccessToken;
