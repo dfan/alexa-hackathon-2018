@@ -40,11 +40,11 @@ function sendEmail(var address) {
           Body: { /* required */
             Html: {
               Charset: "UTF-8",
-              Data: "<html><head></head><body><p>" + event.message.join('<br>') + "</p></body></html>"
+              Data: "<html><head></head><body><p>" + this.attributes[FOOD_INGREDIENTS_ATTRIBUTE].join('<br>') + "</p></body></html>"
             },
             Text: {
              Charset: "UTF-8",
-             Data: event.message.join('\n')
+             Data: this.attributes[FOOD_INGREDIENTS_ATTRIBUTE].join('\n')
             }
          },
          Subject: {
