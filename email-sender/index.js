@@ -22,7 +22,7 @@ handler = (event, context) => {
         Body: { /* required */
           Html: {
             Charset: "UTF-8",
-            Data: ""
+            Data: "<html><head></head><body><p>" + event.message.join('<br>') + "</p></body></html>"
           },
           Text: {
            Charset: "UTF-8",
