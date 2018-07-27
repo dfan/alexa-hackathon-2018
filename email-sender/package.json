@@ -10,6 +10,7 @@
   "dependencies": {
     "aws-sdk": "^2.282.1",
     "dotenv": "^6.0.0",
-    "node-fetch": "^2.2.0"
+    "node-fetch": "^2.2.0",
+    "sendgrid": "^5.2.3"
   }
 }

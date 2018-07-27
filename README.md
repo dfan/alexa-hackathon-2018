@@ -7,4 +7,8 @@ Alexa skill that sends you a list of ingredients for what you want to cook. Supp
 2. Make a lambda function.
 3. Upload `dream-cooker.zip` to the lambda function.
 4. Set environment variables for the lambda function.
-5. Set up Alexa skill.
+5. Set up Alexa skill with intents and slots.
+6. Give lambda ARN role as endpoint for Alexa skill.
+
+## Testing Instructions
+* To test lambda functions locally, go into the folder, add appropriate variables to .env file, and run node index.js (make sure testing code is uncommented)

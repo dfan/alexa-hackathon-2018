@@ -103,6 +103,7 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+dream-cooker.zip
 recipe-generator.zip
 text-sender.zip
 

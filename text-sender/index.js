@@ -8,7 +8,7 @@ AWS.config.update({
       secretAccessKey: `${process.env.SECRET_ACCESS_KEY}`,
 });
 
-exports.handler = (event, context) => {
+handler = (event, context) => {
   var sns = new AWS.SNS();
   var params = {
       Message: event.message.join('\n'),
