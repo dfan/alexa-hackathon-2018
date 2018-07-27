@@ -18,6 +18,8 @@ const FOOD_INGREDIENTS_ATTRIBUTE = "FOOD_INGREDIENTS";
 
 let rp = require('request-promise');
 
+const fetch = require('node-fetch');
+
 const handlers = {
     // Route new requests to Launch Request
     'NewSession': function(){
@@ -25,14 +27,22 @@ const handlers = {
     },
     'LaunchRequest': function () {
         this.attributes[QUESTION_STATE_ATTRIBUTE] = HAVE_INGREDIENTS_QUESTION;
+        this.attributes[FOOD_QUERY_ATTRIBUTE] = "Pizza Is Good";
+        this.attributes[FOOD_INGREDIENTS_ATTRIBUTE] = ['Tomato', 'Cheese'];
         this.response.speak("Welcome to Dream Cooker. Want do you want to cook? ")
             .listen("Want do you want to cook?");
 
         this.emit(':responseReady');
     },
     'MakeFoodIntent': function () {
-
-        this.attributes[FOOD_INGREDIENTS_ATTRIBUTE] = [];
+        // fetch(`https://api.edamam.com/search?q=${event.query}&app_id=${process.env.APP_ID}&app_key=${process.env.APP_KEY}`)
+        //     .then(res => res.json())
+        //     .then(json => callback(null, {
+        //         recipe: '',
+        //         ingredients: json.hits[0].recipe.ingredientLines,
+        //     }))
+        //     .catch(err => callback(new Error(err)));
+        this.attributes[FOOD_INGREDIENTS_ATTRIBUTE] = ['Tomato', 'Cheese'];
         this.emit(':responseReady');
     },
     'AMAZON.YesIntent': function(){
@@ -58,39 +68,42 @@ const handlers = {
         const slotValue = this.event.request.intent.slots.mediaType.value;
         let alexa = this;
         if(slotValue === MEDIATYPE_EMAIL_SLOT){
-
         }
         else if (slotValue === MEDIATYPE_TEXT_SLOT){
 
         }
         else if (slotValue === MEDIATYPE_TODO_SLOT){
-            const consentToken = this.event.session.user.permissions.consentToken;
-            const createListOptions = {
-                method: 'POST',
-                host: LIST_API_URL,
-                port: LIST_API_PORT,
-                path: '/v2/householdlists/',
-                headers: {
-                    'User-Agent': 'Request-Promise',
-                    'Authorization': 'Bearer ' + consentToken,
-                    'Content-Type': 'application/json'
-                },
-                body:{
-                    'name': this.attributes[FOOD_QUERY_ATTRIBUTE] + ' ' + 'Ingredients',
-                    'state': 'active'
-                },
-                json: true // Automatically parses the JSON string in the response
+            const accessToken = this.event.context.System.apiAccessToken;
+            let listManagementService = new Alexa.services.ListManagementService();
+            let date = new Date();
+            let listObject = {
+                'name': `List for ${this.attributes[FOOD_QUERY_ATTRIBUTE]} on ${date.toLocaleString()}`,
+                'state': 'active'
             };
-            rp(createListOptions)
-                .then(function(response){
-                    // for(let i=0; i<lexa.attributes[FOOD_INGREDIENTS_ATTRIBUTE].length; i++){
-                    //     let createListItemOptions = {
-                    //         method: 'POST',
-                    //         host: LIST_API_URL,
-                    //         port: LIST_API_PORT,
-                    //
-                    //     }
-                    // }
+            listManagementService.createList(listObject, accessToken)
+                .then(function(data){
+                    console.log(data);
+                    alexa.attributes[FOOD_INGREDIENTS_ATTRIBUTE].forEach(function (item) {
+                        let listItemObject = {
+                            'value': item,
+                            'status': 'active'
+                        };
+                        listManagementService.createListItem(data.listId, listItemObject, accessToken)
+                            .then(function(data){
+                                count++;
+                                console.log(data);
+                            })
+                            .catch(function (err) {
+                                console.log(err);
+                            });
+                    });
+                    alexa.response.speak("Your ingredients have been saved in your Alexa lists. Goodbye!");
+                    alexa.emit(":responseReady");
+                })
+                .catch(function(error){
+                    console.log(error);
+                    alexa.response.speak("I cannot save your ingredients in your Alexa lists. Sorry and goodbye!");
+                    alexa.emit(":responseReady");
                 });
         }
         else{
