@@ -26,11 +26,11 @@ let rp = require('request-promise');
 function sendEmail(address, alexa) {
     var helper = require('sendgrid').mail;
 
-    from_email = new helper.Email("alexadreamcooker@gmail.com");
-    to_email = new helper.Email(event.address);
-    subject = "Sending with SendGrid is Fun";
-    content = new helper.Content("text/plain", event.message.join('\n'));
-    mail = new helper.Mail(from_email, subject, to_email, content);
+    var from_email = new helper.Email("alexadreamcooker@gmail.com");
+    var to_email = new helper.Email(alexa.attributes[EMAIL_ATTRIBUTE]);
+    var subject = `Your recipe for ${alexa.attributes[FOOD_QUERY_ATTRIBUTE]}`;
+    var content = new helper.Content("text/plain", alexa.attributes[FOOD_INGREDIENTS_ATTRIBUTE].join('<br>'));
+    var mail = new helper.Mail(from_email, subject, to_email, content);
 
     var sg = require('sendgrid')(`${process.env.SENDGRID_API_KEY}`);
     var request = sg.emptyRequest({
@@ -51,6 +51,39 @@ function sendEmail(address, alexa) {
             alexa.emit(":responseReady");
         }
     })
+}
+
+function sendText(address, alexa) {
+    AWS.config.region = `${process.env.MY_REGION}`;
+    AWS.config.update({
+          accessKeyId: `${process.env.ACCESS_KEY}`,
+          secretAccessKey: `${process.env.SECRET_ACCESS_KEY}`,
+    });
+    var phoneNumber = address;
+    if (phoneNumber.length == 10) {
+        phoneNumber = "1" + phoneNumber;
+    }
+    let sns = new AWS.SNS();
+    let params = {
+        Message: alexa.attributes[FOOD_INGREDIENTS_ATTRIBUTE].join('\n'),
+        MessageStructure: 'string',
+        PhoneNumber: phoneNumber,
+        Subject: `Your recipe for ${alexa.attributes[FOOD_QUERY_ATTRIBUTE]}`
+    };
+
+    sns.publish(params, function(err, data) {
+        if (err) {
+            console.log(err, err.stack);
+            alexa.response.speak("Your ingredients have not been sent to the phone. Goodbye!");
+            alexa.emit(":responseReady");
+        } // an error occurred
+        else  {
+            console.log(data);           // successful response
+            alexa.response.speak("Your ingredients have been sent to the phone. Goodbye!");
+            alexa.emit(":responseReady");
+        }
+
+    });
 }
 
 const handlers = {
@@ -90,7 +123,7 @@ const handlers = {
     },
     'LaunchRequest': function() {
         this.attributes[QUESTION_STATE_ATTRIBUTE] = HAVE_INGREDIENTS_QUESTION;
-        this.response.speak("Welcome to Dream Cooker. Want do you want to cook? ")
+        this.response.speak("Welcome to Dream Cooker. What do you want to cook? ")
             .listen("Want do you want to cook?");
 
         this.emit(':responseReady');
@@ -113,14 +146,6 @@ const handlers = {
                     alexa.emit(':responseReady');
                 })
                 .catch(err => console.log(err));
-        }
-    },
-    'PhoneNumberIntent': function() {
-        let phoneNumber = this.event.request.intent.slots.phoneNumber.value;
-        this.attributes[PHONE_NUMBER_ATTRIBUTE] = phoneNumber;
-        if (!phoneNumber) {
-            this.response.speak("Error").listen("What US domestic number would you like me to text the recipe to?");
-            this.emit(':responseReady');
         }
     },
     'AMAZON.YesIntent': function(){
@@ -149,37 +174,8 @@ const handlers = {
             sendEmail(this.attributes[EMAIL_ATTRIBUTE], alexa);
         }
         else if (slotValue === MEDIATYPE_TEXT_SLOT) {
-            AWS.config.region = `${process.env.MY_REGION}`;
-            AWS.config.update({
-                  accessKeyId: `${process.env.ACCESS_KEY}`,
-                  secretAccessKey: `${process.env.SECRET_ACCESS_KEY}`,
-            });
-            this.response.listen("What is your United States phone number?");
-            var phoneNumber = this.attributes[PHONE_NUMBER_ATTRIBUTE];
-            if (phoneNumber.length == 10) {
-                phoneNumber = "1" + phoneNumber;
-            }
-            let sns = new AWS.SNS();
-            let params = {
-                Message: this.attributes[FOOD_INGREDIENTS_ATTRIBUTE].join('\n'),
-                MessageStructure: 'string',
-                PhoneNumber: phoneNumber,
-                Subject: `Your recipe for ${this.attributes[FOOD_QUERY_ATTRIBUTE]}`
-            };
-
-            sns.publish(params, function(err, data) {
-                if (err) {
-                    console.log(err, err.stack);
-                    alexa.response.speak("Your ingredients have not been sent to the phone. Goodbye!");
-                    alexa.emit(":responseReady");
-                } // an error occurred
-                else  {
-                    console.log(data);           // successful response
-                    alexa.response.speak("Your ingredients have been sent to the phone. Goodbye!");
-                    alexa.emit(":responseReady");
-                }
-
-            });
+            this.response.speak("What is your phone number?").listen("What is your phone number?");
+            this.emit(":responseReady");
         }
         else if (slotValue === MEDIATYPE_TODO_SLOT) {
             const accessToken = this.event.context.System.apiAccessToken;
@@ -221,6 +217,16 @@ const handlers = {
                 + 'It could be email, text, or to do list.';
             const repromptOutput = speechOutput;
             this.emit(':elicitSlot', slotToElicit, speechOutput, repromptOutput);
+        }
+    },
+    'PhoneNumberIntent': function() {
+        let phoneNumber = this.event.request.intent.slots.phoneNumber.value;
+        this.attributes[PHONE_NUMBER_ATTRIBUTE] = phoneNumber;
+        let alexa = this;
+        sendText(this.attributes[PHONE_NUMBER_ATTRIBUTE], alexa);
+        if (!phoneNumber) {
+            alexa.response.speak("Error").listen("What US domestic number would you like me to text the recipe to?");
+            alexa.emit(':responseReady');
         }
     },
     'AMAZON.HelpIntent': function () {
