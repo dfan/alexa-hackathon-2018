@@ -29,7 +29,7 @@ function sendEmail(address, alexa) {
     var from_email = new helper.Email("alexadreamcooker@gmail.com");
     var to_email = new helper.Email(alexa.attributes[EMAIL_ATTRIBUTE]);
     var subject = `Your recipe for ${alexa.attributes[FOOD_QUERY_ATTRIBUTE]}`;
-    var content = new helper.Content("text/plain", alexa.attributes[FOOD_INGREDIENTS_ATTRIBUTE].join('<br>'));
+    var content = new helper.Content("text/html", "<html><head></head><body><p>" + event.message.join('<br>') + "</p></body></html>");
     var mail = new helper.Mail(from_email, subject, to_email, content);
 
     var sg = require('sendgrid')(`${process.env.SENDGRID_API_KEY}`);
@@ -124,7 +124,7 @@ const handlers = {
     'LaunchRequest': function() {
         this.attributes[QUESTION_STATE_ATTRIBUTE] = HAVE_INGREDIENTS_QUESTION;
         this.response.speak("Welcome to Dream Cooker. What do you want to cook? ")
-            .listen("Want do you want to cook?");
+            .listen("What do you want to cook?");
 
         this.emit(':responseReady');
     },
