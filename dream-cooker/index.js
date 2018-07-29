@@ -29,7 +29,7 @@ function sendEmail(address, alexa) {
     var from_email = new helper.Email("alexadreamcooker@gmail.com");
     var to_email = new helper.Email(alexa.attributes[EMAIL_ATTRIBUTE]);
     var subject = `Your recipe for ${alexa.attributes[FOOD_QUERY_ATTRIBUTE]}`;
-    var content = new helper.Content("text/html", "<html><head></head><body><p>" + event.message.join('<br>') + "</p></body></html>");
+    var content = new helper.Content("text/html", "<html><head></head><body><p>" + alexa.attributes[FOOD_INGREDIENTS_ATTRIBUTE].join('<br>') + "</p></body></html>");
     var mail = new helper.Mail(from_email, subject, to_email, content);
 
     var sg = require('sendgrid')(`${process.env.SENDGRID_API_KEY}`);
@@ -88,44 +88,39 @@ function sendText(address, alexa) {
 
 const handlers = {
     // Route new requests to Launch Request
-    'NewSession': function(){
+    'NewSession': function() {
         let alexa = this;
         alexa.attributes[EMAIL_ATTRIBUTE] = "";
-        if(this.event.session.user.accessToken) {
-            const amznProfileURL = 'https://api.amazon.com/user/profile';
-            const accessToken = this.event.session.user.accessToken;
-            const options = {
-                method: 'GET',
-                uri: amznProfileURL,
-                qs: {
-                    access_token: accessToken
-                },
-                headers: {
-                    'User-Agent': 'Request-Promise'
-                },
-                json: true // Automatically parses the JSON string in the response
-            };
-            rp(options)
-            .then(function(profile){
-                alexa.attributes[EMAIL_ATTRIBUTE] = profile.email;
-                alexa.emitWithState('LaunchRequest');
-            })
-            .catch(function (err) {
-                alexa.emitWithState('LaunchRequest');
-            });
-        }
-        else{
-            this.emitWithState('LaunchRequest');
-        }
-
-
-
+        const amznProfileURL = 'https://api.amazon.com/user/profile';
+        const accessToken = this.event.session.user.accessToken;
+        const options = {
+            method: 'GET',
+            uri: amznProfileURL,
+            qs: {
+                access_token: accessToken
+            },
+            headers: {
+                'User-Agent': 'Request-Promise'
+            },
+            json: true // Automatically parses the JSON string in the response
+        };
+        rp(options)
+        .then(function(profile){
+            alexa.attributes[EMAIL_ATTRIBUTE] = profile.email;
+            alexa.emitWithState('LaunchRequest');
+        })
+        .catch(function (err) {
+            alexa.emitWithState('LaunchRequest');
+        });
     },
     'LaunchRequest': function() {
+        let alexa = this;
         this.attributes[QUESTION_STATE_ATTRIBUTE] = HAVE_INGREDIENTS_QUESTION;
-        this.response.speak("Welcome to Dream Cooker. What do you want to cook? ")
-            .listen("What do you want to cook?");
-
+        if (!this.event.session.user.accessToken) {
+            alexa.response.speak("Welcome to Dream Cooker. What do you want to cook? By the way, you will need to link your account in the Alexa app and allow list read/write permissions if you want your recipes emailed and sent to your to-do list, respectively.").listen("What do you want to cook?");
+        } else {
+            alexa.response.speak("Welcome to Dream Cooker. What do you want to cook? ").listen("What do you want to cook?");
+        }
         this.emit(':responseReady');
     },
     'MakeFoodIntent': function() {
@@ -170,46 +165,62 @@ const handlers = {
     'SendRecipeIntent': function() {
         const slotValue = this.event.request.intent.slots.mediaType.value;
         let alexa = this;
-        if(slotValue === MEDIATYPE_EMAIL_SLOT) {
-            sendEmail(this.attributes[EMAIL_ATTRIBUTE], alexa);
+        if (slotValue === MEDIATYPE_EMAIL_SLOT) {
+            const accessToken = this.event.session.user.accessToken;
+            if (!accessToken) {
+                // Generate link account card in Alexa app
+                this.response.linkAccountCard();
+                alexa.response.speak("You will need to link your account to this skill in the Alexa app, so that we can get your email address. Goodbye!");
+                alexa.emit(":responseReady");
+            } else {
+                sendEmail(this.attributes[EMAIL_ATTRIBUTE], alexa);
+            }
         }
         else if (slotValue === MEDIATYPE_TEXT_SLOT) {
             this.response.speak("What is your phone number?").listen("What is your phone number?");
             this.emit(":responseReady");
         }
         else if (slotValue === MEDIATYPE_TODO_SLOT) {
-            const accessToken = this.event.context.System.apiAccessToken;
-            let listManagementService = new Alexa.services.ListManagementService();
-            let date = new Date();
-            let listObject = {
-                'name': `List for ${this.attributes[FOOD_QUERY_ATTRIBUTE]} on ${date.toLocaleString()}`,
-                'state': 'active'
-            };
-            listManagementService.createList(listObject, accessToken)
-                .then(function(data){
-                    console.log(data);
-                    alexa.attributes[FOOD_INGREDIENTS_ATTRIBUTE].forEach(function (item) {
-                        let listItemObject = {
-                            'value': item,
-                            'status': 'active'
-                        };
-                        listManagementService.createListItem(data.listId, listItemObject, accessToken)
-                            .then(function(data){
-                                count++;
-                                console.log(data);
-                            })
-                            .catch(function (err){
-                                console.log(err);
-                            });
-                    });
-                    alexa.response.speak("Your ingredients have been saved in your Alexa lists. Goodbye!");
-                    alexa.emit(":responseReady");
-                })
-                .catch(function(error){
+            if (this.event.context.System.user.permissions == undefined) {
+                // Generate card for enabling list read/write in Alexa app
+                alexa.response.speak("Please grant skill permissions to read and write to your to-do lists in the Alexa app. Goodbye."); 
+                const permissions = ['read::alexa:household:list', 'write::alexa:household:list']; 
+                alexa.response.askForPermissionsConsentCard(permissions); 
+                alexa.emit(":responseReady"); 
+            } else {
+                const consentToken = this.event.context.System.user.permissions.consentToken;
+                let listManagementService = new Alexa.services.ListManagementService();
+                let date = new Date();
+                let listObject = {
+                    'name': `List for ${this.attributes[FOOD_QUERY_ATTRIBUTE]} on ${date.toLocaleString()}`,
+                    'state': 'active'
+                };
+                listManagementService.createList(listObject, consentToken)
+                    .then(function(data){
+                        console.log(data);
+                        alexa.attributes[FOOD_INGREDIENTS_ATTRIBUTE].forEach(function (item) {
+                            let listItemObject = {
+                                'value': item,
+                                'status': 'active'
+                            };
+                            listManagementService.createListItem(data.listId, listItemObject, consentToken)
+                                .then(function(data){
+                                    count++;
+                                    console.log(data);
+                                })
+                                .catch(function (err){
+                                    console.log(err);
+                                });
+                        });
+                        alexa.response.speak("Your ingredients have been saved in your Alexa lists. Goodbye!");
+                        alexa.emit(":responseReady");
+                    })
+                .catch(function(error) {
                     console.log(error);
                     alexa.response.speak("I cannot save your ingredients in your Alexa lists. Sorry and goodbye!");
                     alexa.emit(":responseReady");
                 });
+            }
         }
         else {
             const slotToElicit = 'mediaType';
@@ -230,6 +241,7 @@ const handlers = {
         }
     },
     'AMAZON.HelpIntent': function () {
+        this.response.speak("Welcome to Dream Cooker! You will need to link your account and grant list read and write permissions, in the Alexa app, to get full functionality. When you invoke this skill, I will prompt you for something you'd like to cook. You can then choose to receive the recipe by email, text, or save it to your to-do list.")
         this.emit(':responseReady');
     },
     'AMAZON.CancelIntent': function () {

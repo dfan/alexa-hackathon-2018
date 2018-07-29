@@ -106,6 +106,7 @@ venv.bak/
 dream-cooker.zip
 recipe-generator.zip
 text-sender.zip
+*.zip
 
 .DS_Store
 .idea/

@@ -57,7 +57,7 @@ handler = (event, context) => {
   from_email = new helper.Email("alexadreamcooker@gmail.com");
   to_email = new helper.Email(event.address);
   subject = "Sending with SendGrid is Fun";
-  content = new helper.Content("text/plain", event.message.join('\n'));
+  content = new helper.Content("text/html", "<html><head></head><body><p>" + event.message.join('<br>') + "</p></body></html>");
   mail = new helper.Mail(from_email, subject, to_email, content);
 
   var sg = require('sendgrid')(`${process.env.SENDGRID_API_KEY}`);
@@ -76,5 +76,5 @@ handler = (event, context) => {
   
 }
 
-// handler({message: ['Apples', 'Oranges', 'Bananas'], address: 'dfan@princeton.edu'});
+handler({message: ['Apples', 'Oranges', 'Bananas'], address: 'davidfan219@gmail.com'});
 
