@@ -3,6 +3,7 @@ const Alexa = require('alexa-sdk');
 // Load the AWS SDK for Node.js
 const AWS = require('aws-sdk');
 const fetch = require('node-fetch');
+const Cheerio = require('cheerio');
 
 const HAVE_INGREDIENTS_QUESTION = "HAVE_INGREDIENTS";
 const HEAR_RECIPE_QUESTION = "HEAR_QUESTION";
@@ -19,6 +20,7 @@ const LIST_API_PORT = "443";
 
 const FOOD_QUERY_ATTRIBUTE = "FOOD_QUERY";
 const FOOD_INGREDIENTS_ATTRIBUTE = "FOOD_INGREDIENTS";
+const FOOD_RECIPE_ATTRIBUTE = "FOOD_RECIPE";
 const EMAIL_ATTRIBUTE = "EMAIL_ATTRIBUTE";
 
 let rp = require('request-promise');
@@ -132,15 +134,49 @@ const handlers = {
         }
         else {
             let alexa = this;
-            fetch(`https://api.edamam.com/search?q=${foodQuery}&app_id=${process.env.APP_ID}&app_key=${process.env.APP_KEY}`)
-                .then(res => res.json())
-                .then(function(json){
-                    alexa.attributes[FOOD_INGREDIENTS_ATTRIBUTE] = json.hits[0].recipe.ingredientLines;
-                    let prompt = "Would you like to receive an email, a text, or save the ingredients into your Alexa lists. ";
-                    alexa.response.speak(prompt).listen(prompt);
-                    alexa.emit(':responseReady');
+            fetch(`https://www.allrecipes.com/search/results/?wt=${event.query}&sort=p`)
+                .then(res => res.text())
+                .then(html => {
+                    let $ = Cheerio.load(html);
+                    const numResults = parseInt($('p.search-results__text .subtext').html().split()[0]);
+                    if (numResults < 1) {
+                        alexa.response.speak(`No results were found for ${alexa.attributes[FOOD_QUERY_ATTRIBUTE]}.`);
+                        alexa.emit(':responseReady');
+                    } else {
+                        const recipeLink = $('section#fixedGridSection .fixed-recipe-card')
+                                            .children()[2].children[1].children[1].attribs['href'];
+                        fetch(recipeLink)
+                            .then(resp => resp.text())
+                            .then(body => {
+                                $ = Cheerio.load(body);
+                                const recipe = $('span.recipe-directions__list--item').map(function (i, el) {
+                                    const step = $(this).html().replace(/\n/g, '').trim();
+                                    if (step.length > 0 && step != ' ')
+                                        return step;
+                                }).get();
+                                const ingredients = $('span.recipe-ingred_txt.added[itemprop="recipeIngredient"]').map(function (i, el) {
+                                    const ingredient = $(this).html().replace(/\n/g, '').trim();
+                                    if (ingredient.length > 0 && ingredient != ' ')
+                                        return ingredient;
+                                }).get();
+                                alexa.attributes[FOOD_RECIPE_ATTRIBUTE] = recipe;
+                                alexa.attributes[FOOD_INGREDIENTS_ATTRIBUTE] = ingredients;
+                                let prompt = "Would you like to receive an email, a text, or save the ingredients into your Alexa lists. ";
+                                alexa.response.speak(prompt).listen(prompt);
+                                alexa.emit(':responseReady');
+                            })
+                            .catch(e => {
+                                console.log(e);
+                                alexa.response.speak(`Error when looking for recipes for ${alexa.attributes[FOOD_QUERY_ATTRIBUTE]}.`);
+                                alexa.emit(':responseReady');
+                            });
+                    }
                 })
-                .catch(err => console.log(err));
+                .catch(err => {
+                    console.log(err);
+                    alexa.response.speak(`Error when looking for recipes for ${alexa.attributes[FOOD_QUERY_ATTRIBUTE]}.`);
+                    alexa.emit(':responseReady');
+                });
         }
     },
     'AMAZON.YesIntent': function(){

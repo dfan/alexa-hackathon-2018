@@ -10,9 +10,10 @@
   "license": "ISC",
   "dependencies": {
     "alexa-sdk": "^1.0.25",
+    "cheerio": "^1.0.0-rc.2",
     "node-fetch": "^2.2.0",
-    "sendgrid": "^5.2.3",
     "request": "^2.87.0",
-    "request-promise": "^4.2.2"
+    "request-promise": "^4.2.2",
+    "sendgrid": "^5.2.3"
   }
 }
